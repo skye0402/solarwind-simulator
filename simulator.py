@@ -166,6 +166,10 @@ def main():
 
     # Connect to Redis DB
     r = redis.Redis(host=redisHost, port=redisPort, db=redisDb, password=redisPassword, socket_timeout=None, decode_responses=True)
+    try:
+        r.ping()
+    except Exception as e:
+        endless_loop("Could not establish Redis connection - check and restart.")
 
     # Start sending data to cloud
     while loopCondition:
