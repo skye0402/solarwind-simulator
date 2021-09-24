@@ -3,16 +3,15 @@
 import os
 import math
 from datetime import datetime
+from datetime import timedelta
 import time
 import paho.mqtt.client as mqtt
 import ssl
 import random
 import configparser
 import requests
-from requests.auth import HTTPBasicAuth
 import json
 from json import JSONEncoder
-import redis
 
 # Helper functions
 def sinD(x):
@@ -35,33 +34,82 @@ def endless_loop(msg):
     while True:
         pass
 
+# To interpret configured templates of JSON
+def fstr(template, v1, v2):
+    return eval(f"f'{template}'")
+
 # -------------- OPENWEATHER PART ----------------->>>>
-# get weather (ideally cached)
-def getCachedWeather(r, relOpenWeatherUrl, locLat, locLon, excludeInfo, unitSystem, language, apiKey):
-    # Create request url
-    openWeatherUrl = "https://" + relOpenWeatherUrl + "?lat=" + locLat + "&lon=" + locLon + "&exclude=" + excludeInfo + "&units=" + unitSystem + "&lang=" + language + "&appid=" + apiKey
-    
-    # Check if in Redis Cache
-    rainfall = -1.0
-    rainfallStr = r.get(rainfallKey)
-    if rainfallStr == None:
-        # Retrieve from openWeather
-        response = requests.get(openWeatherUrl)
-        data = json.loads(response.text)
-        print("No cached weather forecast available. Called openWeather with response " + str(response.status_code) + ".")
-        if response.status_code == 200:
-            today = data['daily'][1]
-            rainfall = today['rain']
-            print("Forecasted rainfall: " + str(rainfall) + "mm.")
-            r.setex(rainfallKey, rainfallMin * 60, rainfall)
-    else: 
-        rainfall = float(rainfallStr)
-        print("Cached forecasted rainfall: " + str(rainfall) + "mm.")
-    return rainfall      
+
+# To handle openWeather calls and data (including redis)
+class OpenWeather:
+    # Constructor method
+    def __init__(self, url, apiKey, lat, lon, weatherTimeout, unitSystem, language, excludeInfo, smoothChange):
+        super().__init__()
+        self.baseurl = url
+        self.apiKey = apiKey
+        self.lat = lat
+        self.lon = lon
+        self.timeout = weatherTimeout
+        self.units = unitSystem
+        self.lang = language
+        self.exclude = excludeInfo
+        self.callUrl = "https://" + self.baseurl + "?lat=" + str(self.lat) + "&lon=" + str(self.lon) + "&exclude=" + self.exclude + "&units=" + self.units + "&lang=" + self.lang + "&appid=" + self.apiKey
+        self.data = {} # Weather is cached here
+        self.then = datetime.now() # Will be overwritten in first run, stores the expiry timestamp
+        self.smooth = smoothChange # In n steps
+        # Weather data values
+        self.cloud = [-1.,-1.,-1.,0] # Target value, Old value, Current value,Counter
+        self.wind = [-1.,-1.,-1.,0]  # Not used currently TODO
+        
+    # Private method to get weather data (use only this)
+    def __getData(self):
+        # Caching the weather for n minutes
+        now = datetime.now()
+        durationMins = divmod((now-self.then).total_seconds(), 60)[0]
+        if (durationMins > self.timeout) or self.data == {}:
+            response = requests.get(self.callUrl)
+            data = json.loads(response.text)
+            print("No cached weather forecast available. Called openWeather with response " + str(response.status_code) + ".")
+            if response.status_code == 200:
+                # Cache the weather
+                self.then = datetime.now()
+                self.data = data
+            else:
+                endless_loop("Could not call openWeather - this is not good.")
+        return self.data
+
+    # Manages the change in a weather value e.g. wind, clouds.
+    # The purpose is to smooth the change over time
+    def __manageChange(self,input, v):
+        if v[0] == -1: #Never set before, simulator just started
+            v[0] = input
+            v[1] = input
+            v[2] = 0
+        elif v[0] != input: # there was a value change
+            v[1] = v[0] # Move target value to old value
+            v[0] = input # Move changed value to target value
+            v[2] = (v[0] - v[1]) / self.smooth
+            v[3] = 0 # Reset counter
+        if v[3] < self.smooth:
+            v[1] = v[1] + v[2]
+            v[3] = v[3] + 1
+        return v[1]
+
+    # Returns the timezone shift to UTC in seconds
+    def getTimeZoneShift(self):
+        data = self.__getData()
+        timeZoneShift = int(data["timezone_offset"])
+        return timeZoneShift
+
+    # Get cloudiness (cloud coverage) - 0 = Sunny / 100 = Overcast
+    def getClouds(self):
+        data = self.__getData()
+        currentClouds = float(data["current"]["clouds"])
+        return self.__manageChange(currentClouds, self.cloud) 
+
 # <<<<-------------- OPENWEATHER PART -----------------
 
-
-# -------------- SOLAR PART ----------------->>>>
+# # -------------- SOLAR PART ----------------->>>>
 
 # Declination assuming a perfect circle of earth around the sun (360/365 fixes the position on that orbit)
 def declination(dayOfYear):
@@ -104,12 +152,125 @@ def solarInsolation(latitude, day, hourAngle):
     aMIt = airMassIntensity(aMas)
     return aMIt
 
+# Convert time (local) to hour angle
+def timeToHourAngle(time):    
+    return time.hour + time.minute / 60 + time.second / 3600
+
+# Get time - we might need to handle Zulu time to local time conversion
+# Use only this function when you need the time and date!
+def getLocalTime(weather):
+    utc = datetime.utcnow()
+    shiftInSeconds = weather.getTimeZoneShift()
+    localTime = utc + timedelta(0, shiftInSeconds)
+    return localTime
+
 # Cloudiness: proposed model is f(x) = 1/(1+ax²) + b (for R0+)
 # clouds from 0 to 100%
 def cloudinessFactor(clouds, a = 10, b = 0):
     return 1 / (1 + a * math.pow((clouds/100),2)) + b
 
+# Delivers the insolation considering current cloudiness
+def insolationAddWeather(insolation, weather):
+    clouds = weather.getClouds()
+    return insolation * cloudinessFactor(clouds)
+
+# Class definition
+class SolarSim:
+
+    # object constructor
+    def __init__(self, deviceName, certFilename, pemCertFilePath, url, port, ack, measure, solarTemplate, lat, lon, weather):
+        super().__init__()
+        # Mqtt init
+        self.msgTemplate = solarTemplate
+        self.mqtt = MqttClient(deviceName, certFilename, pemCertFilePath, url, port, ack, measure)
+        self.mqtt.connect()
+        # Solar init
+        self.lat = lat # Latitude of simulated location
+        self.lon = lon # Longitude
+        self.weather = weather # Handle to weather object
+
+    # Calculate day of year
+    def __getDayOfYear(self):
+        return getLocalTime(self.weather).timetuple().tm_yday # Day in a year (e.g. 1st Jan = 1)
+
+    # Main method to simulate the solar farm
+    def simulate(self):
+
+        # 1. Solar Insolation - A theoretical value of kW/m² basis for many other values
+        insolation = solarInsolation(self.lat, self.__getDayOfYear(), timeToHourAngle(getLocalTime(self.weather)))
+        # 2. Solar Insolation under current, local cloudiness conditions
+        insolationWithWeather = insolationAddWeather(insolation, self.weather)
+
+
+        # FINALLY - Submit data to SAP IoT Platform
+        self.mqtt.sendMessage(fstr(self.msgTemplate, insolation, insolationWithWeather))
+
+    # End the simulation
+    def endSimulation(self):
+        self.mqtt.stop()
+
 # <<<<-------------- SOLAR PART -----------------
+
+# -------------- MQTT PART ----------------->>>>
+class MqttClient:
+    def __init__(self, deviceName, certFilename, pemCertFilePath, url, port, ack, measure):
+        super().__init__()
+        self.id = deviceName
+        self.url = url
+        self.port = port
+        self.ack = ack
+        self.ackId = self.ack+self.id
+        self.measure = measure
+        self.client = mqtt.Client(self.id) 
+        self.client.on_connect = self.onConnect
+        self.client.on_message = self.onMessage
+        self.client.on_subscribe = self.onSubscribe
+        self.client.tls_set(certfile=pemCertFilePath+certFilename, cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLS, ciphers=None)
+
+    # The callback for when a PUBLISH message is received from the server.
+    def onMessage(self, client, userdata, msg):
+        print(msg.topic + " " + str(msg.payload))
+
+    # Subscription to topic confirmation
+    def onSubscribe(self,client, userdata, mid, granted_qos):
+        pass
+
+    # This function gives a connection response from the server
+    def onConnect(self, client, userdata, flags, rc):
+        rcList = {
+            0: "Connection successful",
+            1: "Connection refused - incorrect protocol version",
+            2: "Connection refused - invalid client identifier",
+            3: "Connection refused - server unavailable",
+            4: "Connection refused - bad username or password",
+            5: "Connection refused",
+        }
+        print(rcList.get(rc, "Unknown server connection return code {}.".format(rc)))
+        if rc == 0:
+            (result, mid) = self.client.subscribe(self.ackId) #Subscribe to device ack topic (feedback given from SAP IoT MQTT Server)
+            print("Subscribed to "+self.ackId+" with result: "+str(result)+" request #"+str(mid))
+
+    # connect method for the device object
+    def connect(self):
+        self.client.connect(self.url, self.port)
+        self.client.loop_start() #Listening loop start 
+
+    # Send message to SAP MQTT Server
+    def sendMessage(self, messageContentJson):
+        messageInfo = self.client.publish(self.measure+self.id, messageContentJson)
+        print(messageContentJson)
+        print("Sent message for " + self.id + " with result " + str(messageInfo.rc) + " request #" + str(messageInfo.mid))
+
+    # Stop the client
+    def stop(self):
+        self.client.loop_stop
+        print("Shut down device "+self.id)
+
+    # object destructor
+    def __del__(self):
+        pass   
+
+# <<<<-------------- MQTT PART -----------------
 
 # -------------- MAIN PROGRAM ---------------
 def main():
@@ -129,9 +290,7 @@ def main():
     if not config.has_section("timing"):
         endless_loop("Config: Timing section missing.")
     if not config.has_section("openweather"):
-        endless_loop("Config: Openweather section missing.")
-    if not config.has_section("redis"):
-        endless_loop("Config: Redis section missing.")    
+        endless_loop("Config: Openweather section missing.")   
     # -------------- Parameters ------------------>>>
     mqttServerUrl = config.get("server","mqttServerUrl")
     mqttServerPort = config.getint("server","mqttServerPort")
@@ -139,24 +298,20 @@ def main():
     ackTopicLevel = config.get("topics","ackTopicLevel")
     measuresTopicLevel = config.get("topics","measuresTopicLevel")
     commandsTopicLevel = config.get("topics","commandsTopicLevel")
-    deviceNameTemplate = config.get("devices","deviceName")
-    iotDevMessage = config.get("messages","messageTemplate")
+    solarDevName = config.get("devices","solarDevName")
+    windDevName = config.get("devices","windDevName")
+    solarTemplate = config.get("messages","solarTemplate")
+    windTemplate = config.get("messages","windTemplate")
     relOpenWeatherUrl = config.get("openweather","url")
-    locLat = config.get("location","lat")
-    locLon = config.get("location","lon")
+    locLat = float(config.get("location","lat"))
+    locLon = float(config.get("location","lon"))
     unitSystem = config.get("openweather","units")
     language = config.get("openweather","lang")
     apiKey =  config.get("openweather","apiid")
     excludeInfo = config.get("openweather","exclude")
 
-    runtimeOfProgram = int(config.get("timing","runtimeOfProgram"))
-    retrievalInterval = int(config.get("timing", "pauseInSeconds"))
     weatherTimeout = int(config.get("timing", "weatherTimeout"))
-
-    redisHost = config.get("redis", "redisHost")
-    redisPort = int(config.get("redis", "redisPort"))
-    redisPassword = config.get("redis", "redisPassword")
-    redisDb = int(config.get("redis", "redisDb"))
+    smoothChange = int(config.get("timing", "smoothChange"))
     pauseTime = int(config.get("timing","pauseInSeconds"))
     runTime = int(config.get("timing","runtimeOfProgram"))
     # -------------- Parameters ------------------<<<
@@ -164,16 +319,16 @@ def main():
     loopCondition = True
     then = datetime.now()
 
-    # Connect to Redis DB
-    r = redis.Redis(host=redisHost, port=redisPort, db=redisDb, password=redisPassword, socket_timeout=None, decode_responses=True)
-    try:
-        r.ping()
-    except Exception as e:
-        endless_loop("Could not establish Redis connection - check and restart.")
+    # Instantiate openWeather
+    weather = OpenWeather(relOpenWeatherUrl, apiKey, locLat, locLon, weatherTimeout, unitSystem, language, excludeInfo, smoothChange)
+
+    # Instantiate solar farm device
+    solar = SolarSim(solarDevName, solarDevName+'.pem', pemCertFilePath, mqttServerUrl, mqttServerPort, ackTopicLevel, measuresTopicLevel, solarTemplate, locLat, locLon, weather)
 
     # Start sending data to cloud
     while loopCondition:
-        #TODO
+        solar.simulate() #Do one round of simulation incl. MQTT transmission
+        #wind.simulate() #TODO
         time.sleep(pauseTime)
         if runTime > 0:
             now = datetime.now()
@@ -182,10 +337,12 @@ def main():
                 loopCondition = False
 
     time.sleep(2) # wait until we have all feedback messages from the server
-
-
+    solar.endSimulation()
+    #wind.endSimulation() # TODO
     print("Shut down all clients. Entering endless loop. Restart pod if needed.")
     while True:
         pass
+
+# Main program start
 if __name__ == "__main__":
     main()

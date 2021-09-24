@@ -1,0 +1,8 @@
+k8s
+config
+certificates
+.vscode
+.gitignore
+Dockerfile
+solar-insolation.ipynb
+*.code-workspace

@@ -1,80 +1,161 @@
-# Example how to generate a secret
-# kubectl create secret generic solarwindsim-redis --from-literal=quoted-redis-password='\"xxxxx\"' --from-literal=redis-password='xxxxx' 
-apiVersion: v1
-kind: Secret
-metadata:
-  name: redis
-  labels:
-    app: redis
-type: Opaque
-data:    
-    quoted-redis-password: "InN1bm55RGF5ITEi"
-    redis-password: "c3VubnlEYXkhMQ=="
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: redis
-  labels:
-    app: redis
-spec:
-  ports:
-  - name: redis
-    port: 6379
-    targetPort: redis
-  selector:
-    app: redis
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: redis
-  labels:
-    app: redis
+  name: windsolarsim-app
 spec:
   replicas: 1
-  strategy:
-    rollingUpdate:
-      maxUnavailable: 0
   selector:
     matchLabels:
-      app: redis
+      app: windsolarsim-app
   template:
     metadata:
       labels:
-        app: redis
+        app: windsolarsim-app
+        version: v1
     spec:
       containers:
-      - name: redis
-        image: "bitnami/redis:latest"
-        imagePullPolicy: "Always"
+      - name: windsolarsim-app
+        image: gunter04/wind-solar-sim:latest
+        imagePullPolicy: Always
         env:
-        - name: REDIS_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: redis
-              key: quoted-redis-password
-        ports:
-        - name: redis
-          containerPort: 6379
-        livenessProbe:
-          exec:
-            command:
-            - redis-cli
-            - ping
-          initialDelaySeconds: 30
-          timeoutSeconds: 5
-        readinessProbe:
-          exec:
-            command:
-            - redis-cli
-            - ping
-          initialDelaySeconds: 5
-          timeoutSeconds: 1
+        - name: PYTHONUNBUFFERED
+          value: "1"
         resources:
-          requests:
-            memory: "64Mi"
-            cpu: "250m"
           limits:
             memory: "128Mi"
             cpu: "500m"
+          requests:
+            memory: 32Mi
+        volumeMounts:
+        - mountPath: /code/config
+          name: windsolarsim-config-configmap  
+        - mountPath: /code/certificates
+          name: windsolarsim-certs-configmap  
+      volumes:
+      - name: windsolarsim-config-configmap
+        configMap: 
+          name: windsolarsim-configfile
+      - name: windsolarsim-certs-configmap
+        configMap: 
+          name: windsolarsim-certsfile   
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: windsolarsim-configfile
+data:
+  settings.cfg: |
+    [location]
+    # # Hamburg
+    # lat = 53.5586941
+    # lon = 9.78774
+    # # Augsburg
+    # lat = 48.358492
+    # lon = 10.7914007
+    # Arai
+    lat = 34.965144 # Latitude
+    lon = 139.1081819 # Longitude
+
+    [server]
+    mqttServerUrl = a4042ecf-281e-4d4a-b721-c9b43461e188.eu10.cp.iot.sap
+    mqttServerPort = 8883
+    pemCertFilePath = ./certificates/
+
+    [topics]
+    ackTopicLevel = ack/
+    measuresTopicLevel = measures/
+    commandsTopicLevel = commands/
+
+    [devices]
+    solarDevName = solar-sim-device
+    windDevName = undefined
+
+    [messages]
+    solarTemplate = {{ "capabilityAlternateId": "solar-sim-capability", "sensorAlternateId": "solar-sim-sensor", "measures": [{{"insolation": "{v1}", "insolationweather": "{v2}"}}] }}
+    windTemplate = undefined
+
+    [timing]
+    pauseInSeconds = 20 # Time until the next message is sent
+    runtimeOfProgram = 0 # Time until the program stops sending (0 = Never) in minutes
+    weatherTimeout = 10 # Time in minutes for cache expiry of openWeather
+    smoothChange = 6 # in steps, controls the smoothing of weather value changes
+
+    [redis]
+    redisHost = localhost #redis
+    redisPort = 6379
+    redisPassword = sunnyDay!1
+    redisDb = 0
+
+    # This file contains all settings for the irrigation control
+    [openweather]
+    url = api.openweathermap.org/data/2.5/onecall # url for forecast call
+    apiid = f31744e55f7e45b2dda03316936d3e09 #Token for authentication, change here for your token!
+    exclude = minutely,hourly,alerts # Information to be excluded
+    units = metric # Unit system
+    lang = en # Language
+
+    # All parameters for the solar farm go here
+    [solar]
+
+    # All parameters for the wind farm go here
+    [wind]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: windsolarsim-certsfile
+data:
+  solar-sim-device.pem: |
+    -----BEGIN RSA PRIVATE KEY-----
+    MIIEowIBAAKCAQEAkpNOMtUfZt3Nrq91/oCfEWOzav1T11aoSXbrolAmxU03Haaj
+    DP7kv7YkPJTxmm3Ruk5sbcP2E3JAf9S8jbaEKs/6IrldliWuwIDFguJmA6yoYTU3
+    j5U32J91p4qIWIJ+N9Sj6uJbZHLrkurLi8Pt2kYe38QaWlEbRUlYFnj66KyhjUtg
+    WxJ+jR2DFM5e+anEkBaMILTOtJKdmpW+OVwlg91eu/ly4De18SBVIVcTSddfVyFb
+    BNM2MhOpvaI9/791vJJVNTRfiRAxDRqMqVhLLftugp4xt5FJm8e2mdJIZV4tOY9E
+    Gh7+bchlZJTPW4wjU3UadyADua9JyRSb9BQjewIDAQABAoIBACwRjdlKqn5LAaQb
+    rOYv1aNszmzEbYi4zTAJSR8r6fw4EvIfP7aQjEX3hT2RqnI7wmq5WXBHEp0WJL5K
+    P8Z7sZENpq75/GFAQyItlTSczP8d0iIn1eSdgITorH8K76Ns2HYAwKfGFqREyP8L
+    CNekuMZ/fpjYZPPynrheLNXU2dtKV2tImW6OEC8UbUyg0m6CrQagZEGzh88hsSOC
+    DoN24QBMNhGEDuRDQ7Y4EgCEU2TvsUg5ZqdIGKnA0+RTpGS7Jg656qbMXS/oShyW
+    hHzRtLmMd9ywow02HKheNO6WYnIzbBMQ2ZgkwvKSGdQ1aP42u0JUdbl8AQW+DnR9
+    VhXpUcECgYEAw8kfiaWodffpA7wdaRo1pyrB/LPrmbRWf31BsOEziVHgwxYbD2pA
+    nY5qjFpAZMZuKpgvp4IHqerpLI5TbdC3+XWXpTVao1MG8O26jbidnr0xMn9tPyKW
+    xIj+z1toDBoylZAMKKlO33TDtO1zws8ezVPnkz3l7E3WzOkSMPuaz40CgYEAv6ex
+    IVjqaef75et5/ULbLPg6icj7Y70SOhw/V5aoz90AXvo9LMj74HKQQntW3V+DHB0T
+    zrvfm9g+lGZmtayyUuKt2/S97pDOmmGt74OeEgzJLTz5cqlwdypXcBF4di39xy59
+    OeG2GKQjmxN2UJS+6ImWJ4XpMecg4NShg4/Q2ScCgYBwiRxtnCC2nib7lJc7IGuS
+    iMs0G57inHvTkAXAS9G5rqyIth4bwDEf3wpzXjUBN+V+6jcKC32oN3SLvctKpdv5
+    sZPWzFIq6sBkn+DJMUK4SXsL0Z7T2Wfb0/rS6XFm82/78+5pONgzLQSI7KvLYA4O
+    a5oCUmPkbeF3qshgC18yyQKBgQCKcirEeiSr6IbQ6i+vQdJuQ8qVqfffbr9x9uHS
+    9eRwc6dG9OGoLm+1DU0kmVCAjfR6JI8gchrvy2A5d1eOuXf/4/vPvpZNdZGpeBJb
+    yOoxA8d3xGo16Cx0CMQtEpHAXSzL68tOOrx+RGPsLDz1rN3TwUAUwOlZwSrA/xjF
+    nugxVQKBgGSh9ekkB07rh+g2tKV3+12hnvicoJECXgTmEc2fiiTsrtNrK3x0g3Rl
+    gkmlKIbg7Z4qrDXHiQBMevrVSEAI9JD/K0OzUs8vuh/6OwV/isF0ol/OfdvJRgsZ
+    VVFJv2k80n3dErEbz4skv+ngKnVbYfAiaMtWILC/PZkZ2FBnOfQc
+    -----END RSA PRIVATE KEY-----
+    -----BEGIN CERTIFICATE-----
+    MIIEcTCCA1mgAwIBAgIOU7ua5WjKcIsQAQMJmHowDQYJKoZIhvcNAQELBQAwVjEL
+    MAkGA1UEBhMCREUxIzAhBgNVBAoTGlNBUCBJb1QgVHJ1c3QgQ29tbXVuaXR5IElJ
+    MSIwIAYDVQQDExlTQVAgSW50ZXJuZXQgb2YgVGhpbmdzIENBMB4XDTIxMDkyMzEw
+    MTExNFoXDTIyMDkyMzEwMTExNFowgb8xCzAJBgNVBAYTAkRFMRwwGgYDVQQKExNT
+    QVAgVHJ1c3QgQ29tbXVuaXR5MRUwEwYDVQQLEwxJb1QgU2VydmljZXMxezB5BgNV
+    BAMUcmRldmljZUFsdGVybmF0ZUlkOnNvbGFyLXNpbS1kZXZpY2V8Z2F0ZXdheUlk
+    OjJ8dGVuYW50SWQ6MTk1NDUxNTUwNXxpbnN0YW5jZUlkOmE0MDQyZWNmLTI4MWUt
+    NGQ0YS1iNzIxLWM5YjQzNDYxZTE4ODCCASIwDQYJKoZIhvcNAQEBBQADggEPADCC
+    AQoCggEBAJKTTjLVH2bdza6vdf6AnxFjs2r9U9dWqEl266JQJsVNNx2mowz+5L+2
+    JDyU8Zpt0bpObG3D9hNyQH/UvI22hCrP+iK5XZYlrsCAxYLiZgOsqGE1N4+VN9if
+    daeKiFiCfjfUo+riW2Ry65Lqy4vD7dpGHt/EGlpRG0VJWBZ4+uisoY1LYFsSfo0d
+    gxTOXvmpxJAWjCC0zrSSnZqVvjlcJYPdXrv5cuA3tfEgVSFXE0nXX1chWwTTNjIT
+    qb2iPf+/dbySVTU0X4kQMQ0ajKlYSy37boKeMbeRSZvHtpnSSGVeLTmPRBoe/m3I
+    ZWSUz1uMI1N1GncgA7mvSckUm/QUI3sCAwEAAaOB0jCBzzBIBgNVHR8EQTA/MD2g
+    O6A5hjdodHRwczovL3Rjcy5teXNhcC5jb20vY3JsL1RydXN0Q29tbXVuaXR5SUkv
+    U0FQSW9UQ0EuY3JsMAwGA1UdEwEB/wQCMAAwJQYDVR0SBB4wHIYaaHR0cDovL3Nl
+    cnZpY2Uuc2FwLmNvbS9UQ1MwDgYDVR0PAQH/BAQDAgbAMB0GA1UdDgQWBBTocwHy
+    5fZ5qlSUyeJZlJITVMCQmjAfBgNVHSMEGDAWgBSVt7P1WN7VtLNYRuDypsl4Tr0t
+    dTANBgkqhkiG9w0BAQsFAAOCAQEAgKikZVgp+7pMHOwsQd4y7lFbuwiaNWt9xQbb
+    9j1P2ylJ0UGNoVA6pxdtCDI0ZC27KYBVxohQJ7kRS8h+ePxOaRorAU5ObDDOeTBv
+    iKcIwQG1VupBnL/7NmL/XRK4Ul1zK56DzTR7bAvE8GjRP5OjCEtY+kwR8wu3C9Fo
+    LAUBx2aSsHIpWQp9BK68jAlV5/s0YO90jT9M3OnBgoVv9TJ6UMZcpyyTJ6V2s1u9
+    Y7YfPy1SxowdyVBhgCTzF5t4HvGhmLdYnTvtUA2rmXXXFXZFS9KJe2d2L5dTxwv8
+    NFuehMNsFP8J+53FnUuqlAFIpzCTSiBH5sGlC/PoILitOcMqrg==
+    -----END CERTIFICATE-----
