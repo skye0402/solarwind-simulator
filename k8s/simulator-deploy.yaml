@@ -64,14 +64,14 @@ data:
     [topics]
     ackTopicLevel = ack/
     measuresTopicLevel = measures/
-    commandsTopicLevel = commands/
 
     [devices]
-    solarDevName = solar-sim-device
-    windDevName = undefined
+    solarDevName = solar-sim-device-gunter
+    windDevName = wind-sim-device-gunter
 
     [messages]
     solarTemplate = {{ "capabilityAlternateId": "solar-sim-capability", "sensorAlternateId": "solar-sim-sensor", "measures": [{{"insolation": "{v1}", "insolationweather": "{v2}"}}] }}
+    weatherTemplate = {{ "capabilityAlternateId": "weather-capability", "sensorAlternateId": "weatherdata-sensor", "measures": [{{"windspeed": "{v1}", "windgust": "{v2}", "winddirection": "{v3}", "humidity": "{v4}", "airpressure": "{v5}", "rain": "{v6}", "snow": "{v7}", "dewpoint": "{v8}", "uvindex": "{v9}"}}] }}
     windTemplate = undefined
 
     [timing]
@@ -79,12 +79,6 @@ data:
     runtimeOfProgram = 0 # Time until the program stops sending (0 = Never) in minutes
     weatherTimeout = 10 # Time in minutes for cache expiry of openWeather
     smoothChange = 6 # in steps, controls the smoothing of weather value changes
-
-    [redis]
-    redisHost = localhost #redis
-    redisPort = 6379
-    redisPassword = sunnyDay!1
-    redisDb = 0
 
     # This file contains all settings for the irrigation control
     [openweather]
@@ -105,57 +99,57 @@ kind: ConfigMap
 metadata:
   name: windsolarsim-certsfile
 data:
-  solar-sim-device.pem: |
+  solar-sim-device-gunter.pem: |
     -----BEGIN RSA PRIVATE KEY-----
-    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
+    MIIEowIBAAKCAQEAhk7eNxZ+HXzgWXJigJYeMlHR3tFPvMzX7OvCXwMFyf52+6qR
+    LwoZxlmIserorAoCRuRt6RkJ0Dw0RJAT+zdePJa79g3wDWY6ezJ2cC6I/wGFsUKA
+    91ARGwMR6Jn8ueRSgbg7aOWLgtVxFFLSR3VahbUtP12d56PSG6CSUAzCQj6rQLE/
+    pUO8QNjv5Bcq/dLsJHRu4kZtfMRcvBlJIx6MepQsNz+uAzsaw00qDgPdudy9BEPv
+    LVbMfxnvRHQhZkGDKs/8j6/XBUAcNfHqKl0A2gWLg+OmZStPqJoTgpcjOq0/LQa7
+    5xMKG8tFcZ0keV1n/FAm5tKFn15k1g7LmEXaMwIDAQABAoIBAFf5cTVEVneaRJpS
+    gpMXwc/UKFR7Zm+U/hsCkt8Ja9FUDTvsDg1x4FA8dX2VEbMfGz60ggodjIAJ73K5
+    rVzwd5nYYmZZ2tPsEoKAG3SABtyCcsAZf8B/gbTf3esucoyRMjomI0Qil6+rf9aA
+    KZ0FEbZjZrAK8lO4yvetxikJMnWRAwYQZyE/CNXd0uTVB/lxMJ3ETPrpA2KeVE7l
+    Hmy+GZeCtKDaHiR7oEbZYSdetMnkV3iVm+nORBaezs5GrC9nwfaExRhpYsuVM8ID
+    UwHUScfgsXeCRPswDbZXPsLI9W0SMWhaupGprsVzLyYP27dIDJjri+aXjeLl16Lw
+    ei/lNoECgYEAzY5P1Qskw2cVMAXHQabG9owgY+akgEbdPjJV3SGONFks52cvT1XE
+    IpQ1mfvS7V1PT5JNyj24cwKBFh8cp+G3NLNP5E4slmYQc9E9g5M6YYRSzJ7RVla1
+    UwU9Bmi7tw/RBpIcdQowJ+I+zUi3okp0zrcdUCn+0KV5kMC0bp299IcCgYEAp0SJ
+    aYrpw/YQOHU2W/F4Sp3VRFUYuqqV+YiP6dkg3HA9Hj5fMGjNe6bgXWaigaDQyGUA
+    nPjomG6Nv2arL+qEGKmmGKeFYVHaEu33KWXz5Rs9zk2f7izeUYUWUVvWsr0uq1PC
+    FuPr8hGnQPRUFac0hsD/26+8BGUeZYowTVQIw/UCgYB1tlttKxaAd9WgTI7Qv8sM
+    gS5DR19IvkwQRA77tS2UOMUINwTWr8zD6I/RgG5H07mJXcUCXdn0sqhtnJ9yXEXn
+    /g9wNHxAHG6rhFVvta4nDfnEh+ZlRP5NbqCFvRBSQtJ2qtF1DMKK9Hr2YAAZBf5i
+    Kma083ei0EAPbutktRyEnQKBgHip02rkwAASSN9BhwZKqllBhLC3ppA6MNiC8DZk
+    4PTErwJbQjXc1Kbn2iDmwkI67YIygn+6e6hC0FSLzuBREBvufhh4+Joc/vD643rk
+    xk23Gh3yF3YsvfAWzuPAGaB1Iu6LDI+Qugu1Om98EhBQv26aWbh0DHErNQNQ7clK
+    3svlAoGBAKhVvymlZhJgMvIWz0SAFNzn5zbeM4gcNn20tCSA2NArDdQLV/eRM/Fm
+    /Ne3YBv9/9k92x2V81yAanK57dKOhNJZ5ma8fQnQYXO0AkiPGY/bOxHk3Solsluk
+    1Eig8E0SOvZWmFqLK1/tNLyAn+nj2etPeAf9bwhUS5YwxmZE6zNe
     -----END RSA PRIVATE KEY-----
     -----BEGIN CERTIFICATE-----
-    MIIEcTCCA1mgAwIBAgIOU7ua5WjKcIsQAQMJmHowDQYJKoZIhvcNAQELBQAwVjEL
-    MAkGA1UEBhMCREUxIzAhBgNVBAoTGlNBUCBJb1QgVHJ1c3QgQ29tbXVuaXR5IElJ
-    MSIwIAYDVQQDExlTQVAgSW50ZXJuZXQgb2YgVGhpbmdzIENBMB4XDTIxMDkyMzEw
-    MTExNFoXDTIyMDkyMzEwMTExNFowgb8xCzAJBgNVBAYTAkRFMRwwGgYDVQQKExNT
-    QVAgVHJ1c3QgQ29tbXVuaXR5MRUwEwYDVQQLEwxJb1QgU2VydmljZXMxezB5BgNV
-    BAMUcmRldmljZUFsdGVybmF0ZUlkOnNvbGFyLXNpbS1kZXZpY2V8Z2F0ZXdheUlk
-    OjJ8dGVuYW50SWQ6MTk1NDUxNTUwNXxpbnN0YW5jZUlkOmE0MDQyZWNmLTI4MWUt
-    NGQ0YS1iNzIxLWM5YjQzNDYxZTE4ODCCASIwDQYJKoZIhvcNAQEBBQADggEPADCC
-    AQoCggEBAJKTTjLVH2bdza6vdf6AnxFjs2r9U9dWqEl266JQJsVNNx2mowz+5L+2
-    JDyU8Zpt0bpObG3D9hNyQH/UvI22hCrP+iK5XZYlrsCAxYLiZgOsqGE1N4+VN9if
-    daeKiFiCfjfUo+riW2Ry65Lqy4vD7dpGHt/EGlpRG0VJWBZ4+uisoY1LYFsSfo0d
-    gxTOXvmpxJAWjCC0zrSSnZqVvjlcJYPdXrv5cuA3tfEgVSFXE0nXX1chWwTTNjIT
-    qb2iPf+/dbySVTU0X4kQMQ0ajKlYSy37boKeMbeRSZvHtpnSSGVeLTmPRBoe/m3I
-    ZWSUz1uMI1N1GncgA7mvSckUm/QUI3sCAwEAAaOB0jCBzzBIBgNVHR8EQTA/MD2g
-    O6A5hjdodHRwczovL3Rjcy5teXNhcC5jb20vY3JsL1RydXN0Q29tbXVuaXR5SUkv
-    U0FQSW9UQ0EuY3JsMAwGA1UdEwEB/wQCMAAwJQYDVR0SBB4wHIYaaHR0cDovL3Nl
-    cnZpY2Uuc2FwLmNvbS9UQ1MwDgYDVR0PAQH/BAQDAgbAMB0GA1UdDgQWBBTocwHy
-    5fZ5qlSUyeJZlJITVMCQmjAfBgNVHSMEGDAWgBSVt7P1WN7VtLNYRuDypsl4Tr0t
-    dTANBgkqhkiG9w0BAQsFAAOCAQEAgKikZVgp+7pMHOwsQd4y7lFbuwiaNWt9xQbb
-    9j1P2ylJ0UGNoVA6pxdtCDI0ZC27KYBVxohQJ7kRS8h+ePxOaRorAU5ObDDOeTBv
-    iKcIwQG1VupBnL/7NmL/XRK4Ul1zK56DzTR7bAvE8GjRP5OjCEtY+kwR8wu3C9Fo
-    LAUBx2aSsHIpWQp9BK68jAlV5/s0YO90jT9M3OnBgoVv9TJ6UMZcpyyTJ6V2s1u9
-    Y7YfPy1SxowdyVBhgCTzF5t4HvGhmLdYnTvtUA2rmXXXFXZFS9KJe2d2L5dTxwv8
-    NFuehMNsFP8J+53FnUuqlAFIpzCTSiBH5sGlC/PoILitOcMqrg==
+    MIIEezCCA2OgAwIBAgIPZ/RHRtia88EQAQcAvEZkMA0GCSqGSIb3DQEBCwUAMFYx
+    CzAJBgNVBAYTAkRFMSMwIQYDVQQKExpTQVAgSW9UIFRydXN0IENvbW11bml0eSBJ
+    STEiMCAGA1UEAxMZU0FQIEludGVybmV0IG9mIFRoaW5ncyBDQTAeFw0yMTA5MjQw
+    MTQ1MzVaFw0yMjA5MjQwMTQ1MzVaMIHIMQswCQYDVQQGEwJERTEcMBoGA1UEChMT
+    U0FQIFRydXN0IENvbW11bml0eTEVMBMGA1UECxMMSW9UIFNlcnZpY2VzMYGDMIGA
+    BgNVBAMUeWRldmljZUFsdGVybmF0ZUlkOnNvbGFyLXNpbS1kZXZpY2UtZ3VudGVy
+    fGdhdGV3YXlJZDoyfHRlbmFudElkOjE5NTQ1MTU1MDV8aW5zdGFuY2VJZDphNDA0
+    MmVjZi0yODFlLTRkNGEtYjcyMS1jOWI0MzQ2MWUxODgwggEiMA0GCSqGSIb3DQEB
+    AQUAA4IBDwAwggEKAoIBAQCGTt43Fn4dfOBZcmKAlh4yUdHe0U+8zNfs68JfAwXJ
+    /nb7qpEvChnGWYix6uisCgJG5G3pGQnQPDREkBP7N148lrv2DfANZjp7MnZwLoj/
+    AYWxQoD3UBEbAxHomfy55FKBuDto5YuC1XEUUtJHdVqFtS0/XZ3no9IboJJQDMJC
+    PqtAsT+lQ7xA2O/kFyr90uwkdG7iRm18xFy8GUkjHox6lCw3P64DOxrDTSoOA925
+    3L0EQ+8tVsx/Ge9EdCFmQYMqz/yPr9cFQBw18eoqXQDaBYuD46ZlK0+omhOClyM6
+    rT8tBrvnEwoby0VxnSR5XWf8UCbm0oWfXmTWDsuYRdozAgMBAAGjgdIwgc8wSAYD
+    VR0fBEEwPzA9oDugOYY3aHR0cHM6Ly90Y3MubXlzYXAuY29tL2NybC9UcnVzdENv
+    bW11bml0eUlJL1NBUElvVENBLmNybDAMBgNVHRMBAf8EAjAAMCUGA1UdEgQeMByG
+    Gmh0dHA6Ly9zZXJ2aWNlLnNhcC5jb20vVENTMA4GA1UdDwEB/wQEAwIGwDAdBgNV
+    HQ4EFgQU1rP85LAH1SvXXksA3wOPwu5SD4EwHwYDVR0jBBgwFoAUlbez9Vje1bSz
+    WEbg8qbJeE69LXUwDQYJKoZIhvcNAQELBQADggEBADyY7wFj5w8tlVeL34ZOQW7n
+    0UHUMLD7HXX1Zyqw4vQ0YyaIU2Kiv+YYLGCXVaYwfWJm9FXhGlGj9Omy+JkCvEfP
+    VRDPGJOiJwNTxGMnfTdyydoTl8XMlC/8x5boz4tYqV2TnOSQTIYXYHeQ/Tjh3GdZ
+    OI20JtWcwSmiIOTU7pzfBuYkPpvQRLZ1ma1eBR2dYlv5Y2vXrlcUdWyM63tTdHoB
+    U4oP76fhe+3VGohrqjMEwfpbgBMgcb8wPzRqDTklDCCcJsqizFtQiEGGBT7+6uDf
+    8es6FUNVnI0s/SyFuUJxTyVfhXvAvysjNEUq1lxGwHujnO+ECqGl55sZ9xwzdxY=
     -----END CERTIFICATE-----
