@@ -122,8 +122,13 @@ class OpenWeather:
     def getClouds(self):
         data = self.__getData()
         currentClouds = float(data["current"]["clouds"])
-        return self.__randomize(self.__manageChange(currentClouds, self.cloud),5,True) # 5% deviation 
-
+        currentClouds = self.__randomize(self.__manageChange(currentClouds, self.cloud),3,True) # 3% deviation 
+        if currentClouds < 0:
+            currentClouds = 0
+        elif currentClouds > 100:
+            currentClouds = 100
+        return currentClouds
+        
     # Get temperature
     def getTemperature(self):
         data = self.__getData()
@@ -136,7 +141,10 @@ class OpenWeather:
             data = self.__getData()
             currentWindSpeed = float(data["current"]["wind_speed"])
             windSpeed = self.__manageChange(currentWindSpeed, self.windSpeed)
-            return self.__randomize(windSpeed, (self.getWindGust()-windSpeed)/2)
+            windSpeed = self.__randomize(windSpeed, (self.getWindGust()-windSpeed)/4)
+            if windSpeed < 0: # Standard deviation!
+                windSpeed = 0
+            return windSpeed
     
     # Get wind gust
     def getWindGust(self):
@@ -150,7 +158,12 @@ class OpenWeather:
         data = self.__getData()
         currentWindDir = float(data["current"]["wind_deg"])
         windDirection = self.__manageChange(currentWindDir, self.windDirection)
-        return int(self.__randomize(windDirection,3,True))
+        windDirection = int(self.__randomize(windDirection,3,True))
+        if windDirection < 0:
+            windDirection = 360 - windDirection
+        elif windDirection > 360:
+            windDirection = windDirection - 360
+        return windDirection
 
     # Get humidity
     def getHumidity(self):

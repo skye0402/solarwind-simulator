@@ -71,7 +71,7 @@ data:
 
     [messages]
     solarTemplate = {{ "capabilityAlternateId": "solar-sim-capability", "sensorAlternateId": "solar-sim-sensor", "measures": [{{"insolation": "{v1}", "insolationweather": "{v2}"}}] }}
-    weatherTemplate = {{ "capabilityAlternateId": "weather-capability", "sensorAlternateId": "weatherdata-sensor", "measures": [{{"windspeed": "{v1}", "windgust": "{v2}", "winddirection": "{v3}", "humidity": "{v4}", "airpressure": "{v5}", "rain": "{v6}", "snow": "{v7}", "dewpoint": "{v8}", "uvindex": "{v9}"}}] }}
+    weatherTemplate = {{ "capabilityAlternateId": "weather-capability", "sensorAlternateId": "weatherdata-sensor", "measures": [{{"windspeed": "{v1}", "windgust": "{v2}", "winddirection": "{v3}", "humidity": "{v4}", "airpressure": "{v5}", "rain": "{v6}", "snow": "{v7}", "dewpoint": "{v8}", "uvindex": "{v9}", "temperature": "{v10}"}}] }}
     windTemplate = undefined
 
     [timing]
