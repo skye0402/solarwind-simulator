@@ -57,7 +57,7 @@ data:
     lon = 139.1081819 # Longitude
 
     [server]
-    mqttServerUrl = a4042ecf-281e-4d4a-b721-c9b43461e188.eu10.cp.iot.sap
+    mqttServerUrl = 70598882-95c9-4202-b612-268781466fe3.eu10.cp.iot.sap
     mqttServerPort = 8883
     pemCertFilePath = ./certificates/
 
@@ -66,11 +66,12 @@ data:
     measuresTopicLevel = measures/
 
     [devices]
-    solarDevName = solar-sim-device-gunter
-    windDevName = wind-sim-device-gunter
+    solarDevName = solar-sim-device
+    windDevName = wind-sim-device
+    weatherDevName = WEATHER_STATION
 
     [messages]
-    solarTemplate = {{ "capabilityAlternateId": "solar-sim-capability", "sensorAlternateId": "solar-sim-sensor", "measures": [{{"insolation": "{v1}", "insolationweather": "{v2}"}}] }}
+    solarTemplate = {{ "capabilityAlternateId": "solar-sim-capability", "sensorAlternateId": "solar-sim-sensor", "measures": [{{"insolation": "{v1}", "insolationweather": "{v2}", "theoreticaloutput": "0.0", "moduletemperature": "0.0" }}] }}
     weatherTemplate = {{ "capabilityAlternateId": "weather-capability", "sensorAlternateId": "weatherdata-sensor", "measures": [{{"windspeed": "{v1}", "windgust": "{v2}", "winddirection": "{v3}", "humidity": "{v4}", "airpressure": "{v5}", "rain": "{v6}", "snow": "{v7}", "dewpoint": "{v8}", "uvindex": "{v9}", "temperature": "{v10}"}}] }}
     windTemplate = undefined
 
@@ -99,57 +100,57 @@ kind: ConfigMap
 metadata:
   name: windsolarsim-certsfile
 data:
-  solar-sim-device-gunter.pem: |
+  WEATHER_STATION.pem: |
     -----BEGIN RSA PRIVATE KEY-----
-    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
+    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
     -----END RSA PRIVATE KEY-----
     -----BEGIN CERTIFICATE-----
-    MIIEezCCA2OgAwIBAgIPZ/RHRtia88EQAQcAvEZkMA0GCSqGSIb3DQEBCwUAMFYx
+    MIIEbjCCA1agAwIBAgIPWP+yFdVIN8cQAQcAuwxHMA0GCSqGSIb3DQEBCwUAMFYx
     CzAJBgNVBAYTAkRFMSMwIQYDVQQKExpTQVAgSW9UIFRydXN0IENvbW11bml0eSBJ
-    STEiMCAGA1UEAxMZU0FQIEludGVybmV0IG9mIFRoaW5ncyBDQTAeFw0yMTA5MjQw
-    MTQ1MzVaFw0yMjA5MjQwMTQ1MzVaMIHIMQswCQYDVQQGEwJERTEcMBoGA1UEChMT
-    U0FQIFRydXN0IENvbW11bml0eTEVMBMGA1UECxMMSW9UIFNlcnZpY2VzMYGDMIGA
-    BgNVBAMUeWRldmljZUFsdGVybmF0ZUlkOnNvbGFyLXNpbS1kZXZpY2UtZ3VudGVy
-    fGdhdGV3YXlJZDoyfHRlbmFudElkOjE5NTQ1MTU1MDV8aW5zdGFuY2VJZDphNDA0
-    MmVjZi0yODFlLTRkNGEtYjcyMS1jOWI0MzQ2MWUxODgwggEiMA0GCSqGSIb3DQEB
-    AQUAA4IBDwAwggEKAoIBAQCGTt43Fn4dfOBZcmKAlh4yUdHe0U+8zNfs68JfAwXJ
-    /nb7qpEvChnGWYix6uisCgJG5G3pGQnQPDREkBP7N148lrv2DfANZjp7MnZwLoj/
-    AYWxQoD3UBEbAxHomfy55FKBuDto5YuC1XEUUtJHdVqFtS0/XZ3no9IboJJQDMJC
-    PqtAsT+lQ7xA2O/kFyr90uwkdG7iRm18xFy8GUkjHox6lCw3P64DOxrDTSoOA925
-    3L0EQ+8tVsx/Ge9EdCFmQYMqz/yPr9cFQBw18eoqXQDaBYuD46ZlK0+omhOClyM6
-    rT8tBrvnEwoby0VxnSR5XWf8UCbm0oWfXmTWDsuYRdozAgMBAAGjgdIwgc8wSAYD
-    VR0fBEEwPzA9oDugOYY3aHR0cHM6Ly90Y3MubXlzYXAuY29tL2NybC9UcnVzdENv
-    bW11bml0eUlJL1NBUElvVENBLmNybDAMBgNVHRMBAf8EAjAAMCUGA1UdEgQeMByG
-    Gmh0dHA6Ly9zZXJ2aWNlLnNhcC5jb20vVENTMA4GA1UdDwEB/wQEAwIGwDAdBgNV
-    HQ4EFgQU1rP85LAH1SvXXksA3wOPwu5SD4EwHwYDVR0jBBgwFoAUlbez9Vje1bSz
-    WEbg8qbJeE69LXUwDQYJKoZIhvcNAQELBQADggEBADyY7wFj5w8tlVeL34ZOQW7n
-    0UHUMLD7HXX1Zyqw4vQ0YyaIU2Kiv+YYLGCXVaYwfWJm9FXhGlGj9Omy+JkCvEfP
-    VRDPGJOiJwNTxGMnfTdyydoTl8XMlC/8x5boz4tYqV2TnOSQTIYXYHeQ/Tjh3GdZ
-    OI20JtWcwSmiIOTU7pzfBuYkPpvQRLZ1ma1eBR2dYlv5Y2vXrlcUdWyM63tTdHoB
-    U4oP76fhe+3VGohrqjMEwfpbgBMgcb8wPzRqDTklDCCcJsqizFtQiEGGBT7+6uDf
-    8es6FUNVnI0s/SyFuUJxTyVfhXvAvysjNEUq1lxGwHujnO+ECqGl55sZ9xwzdxY=
+    STEiMCAGA1UEAxMZU0FQIEludGVybmV0IG9mIFRoaW5ncyBDQTAeFw0yMTA5MDgw
+    ODM5MjdaFw0yMjA5MDgwODM5MjdaMIG7MQswCQYDVQQGEwJERTEcMBoGA1UEChMT
+    U0FQIFRydXN0IENvbW11bml0eTEVMBMGA1UECxMMSW9UIFNlcnZpY2VzMXcwdQYD
+    VQQDFG5kZXZpY2VBbHRlcm5hdGVJZDpURU5BTlRfUk9VVEVSfGdhdGV3YXlJZDoy
+    fHRlbmFudElkOjMzOTkxMTIyMnxpbnN0YW5jZUlkOjcwNTk4ODgyLTk1YzktNDIw
+    Mi1iNjEyLTI2ODc4MTQ2NmZlMzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoC
+    ggEBALief2e6WDSdcpqyVElC7z5GBBo33maK3yuQgqSTJ/MXJWj8J+PMa1s4BrgT
+    u2rSGUD6URtAj6Zzl2/SBj5dsJU0ClAqGwq+wQMW2xJ0zIIkLRAOLzXUOoAQxzbp
+    RCX2Wv57FOGV9ZWjBgnhK6P1PRA00BKOgt+k3B6R+aHTxFMCeJrmmbRuOa8Y3vTB
+    BUIz7wQ+tSFVQvHG0YBx3KLf/WKwzpnGK4ij61xX0j0a8BQ5zIqpeILSYqXt/qrI
+    VxxZ+SVhc2BOJAjyd1T1AH4pzam6gfdl8TVSTtXjoAUTHzMceUe3di+/ctsHFVs0
+    oHKHYjolOGp58CRxYlgrbP39Ms0CAwEAAaOB0jCBzzBIBgNVHR8EQTA/MD2gO6A5
+    hjdodHRwczovL3Rjcy5teXNhcC5jb20vY3JsL1RydXN0Q29tbXVuaXR5SUkvU0FQ
+    SW9UQ0EuY3JsMAwGA1UdEwEB/wQCMAAwJQYDVR0SBB4wHIYaaHR0cDovL3NlcnZp
+    Y2Uuc2FwLmNvbS9UQ1MwDgYDVR0PAQH/BAQDAgbAMB0GA1UdDgQWBBTzyy/x8jUo
+    AMteXDwEKeqcONUiIjAfBgNVHSMEGDAWgBSVt7P1WN7VtLNYRuDypsl4Tr0tdTAN
+    BgkqhkiG9w0BAQsFAAOCAQEArcqZrc8hLhDYbV7fw+i6uHBYK6eihTXHRnEUU07j
+    pihAp+vIebwA1sOsoVjciI0lIfWespwUXH3dyZaY/eyKvwefCoLTCOKM6UTqdU2f
+    HFV1eaOlKp3qiMnM7pLlT/lbZGEmEKa7ZhovN6JBCKyi+ERFIeVcHSv3jF6Vc9pS
+    KX56ecnXp23U+XaaSEHn3/ke1AO4wCUtopbZkNl3m9ULB+ZnJn5JqoGdqKWJ2ZzL
+    53ba7yRflWd3WRaZWihWCVaQwntFk8r1H4MUx7w6+0KZsUnMtzYCM08VXPzfbcjQ
+    ioyAE34J3k7eu0mVUcXOC4a212CYNWFdhISp2aMFa5nSRQ==
     -----END CERTIFICATE-----

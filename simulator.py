@@ -13,6 +13,17 @@ import requests
 import json
 from json import JSONEncoder
 
+# Run # of the simulator - required by some functions
+runNo = 0
+
+def getRun():
+    global runNo
+    return runNo
+
+def nextRun():
+    global runNo
+    runNo = runNo + 1
+
 # Helper functions
 def sinD(x):
     return math.sin(math.radians(x))
@@ -59,17 +70,17 @@ class OpenWeather:
         self.then = datetime.now() # Will be overwritten in first run, stores the expiry timestamp
         self.smooth = smoothChange # In n steps
         # Weather data values
-        self.cloud = [-1.,-1.,-1.,0] # Target value, Old value, Current value,Counter
-        self.temperature = [-1.,-1.,-1.,0] # Temperature in degrees Celsius
-        self.windSpeed = [-1.,-1.,-1.,0] # Windspeed in m/s
-        self.windGust = [-1.,-1.,-1.,0]  # Wind gust in m/s
-        self.windDirection = [-1.,-1.,-1.,0]  # Direction on 360 degrees (0 = North, 180 = South)
-        self.humidity = [-1.,-1.,-1.,0] # Humidty relative in %
-        self.airpressure = [-1.,-1.,-1.,0] # Airpressure  in hPa
-        self.rain = [-1.,-1.,-1.,0]  # Rain in mm
-        self.snow = [-1.,-1.,-1.,0]  # Snow in mm
-        self.dewPoint = [-1.,-1.,-1.,0] # Dew point in degrees Celsius
-        self.uvIndex = [-1.,-1.,-1.,0] # UV Index 0 - 12 (none to extreme)        
+        self.cloud = [-1.,-1.,-1.,0,0] # Target value, Old value, Current value,Counter,Run#
+        self.temperature = [-1.,-1.,-1.,0,0] # Temperature in degrees Celsius
+        self.windSpeed = [-1.,-1.,-1.,0,0] # Windspeed in m/s
+        self.windGust = [-1.,-1.,-1.,0,0]  # Wind gust in m/s
+        self.windDirection = [-1.,-1.,-1.,0,0]  # Direction on 360 degrees (0 = North, 180 = South)
+        self.humidity = [-1.,-1.,-1.,0,0] # Humidty relative in %
+        self.airpressure = [-1.,-1.,-1.,0,0] # Airpressure  in hPa
+        self.rain = [-1.,-1.,-1.,0,0]  # Rain in mm
+        self.snow = [-1.,-1.,-1.,0,0]  # Snow in mm
+        self.dewPoint = [-1.,-1.,-1.,0,0] # Dew point in degrees Celsius
+        self.uvIndex = [-1.,-1.,-1.,0,0] # UV Index 0 - 12 (none to extreme)        
 
     # Private method to get weather data (use only this)
     def __getData(self):
@@ -90,19 +101,22 @@ class OpenWeather:
 
     # Manages the change in a weather value e.g. wind, clouds.
     # The purpose is to smooth the change over time
+    # Make sure to call the change only once per cycle!
     def __manageChange(self,input, v):
-        if v[0] == -1: #Never set before, simulator just started
-            v[0] = input
-            v[1] = input
-            v[2] = 0
-        elif v[0] != input: # there was a value change
-            v[1] = v[0] # Move target value to old value
-            v[0] = input # Move changed value to target value
-            v[2] = (v[0] - v[1]) / self.smooth
-            v[3] = 0 # Reset counter
-        if v[3] < self.smooth:
-            v[1] = v[1] + v[2]
-            v[3] = v[3] + 1
+        if v[4] < getRun():
+            v[4] = getRun() #Increase run number when calling first time
+            if v[0] == -1: #Never set before, simulator just started
+                v[0] = input
+                v[1] = input
+                v[2] = 0
+            elif v[0] != input: # there was a value change
+                v[1] = v[0] # Move target value to old value
+                v[0] = input # Move changed value to target value
+                v[2] = (v[0] - v[1]) / self.smooth
+                v[3] = 0 # Reset counter
+            if v[3] < self.smooth:
+                v[1] = v[1] + v[2]
+                v[3] = v[3] + 1
         return v[1]
 
     # Randomizes around a mean value considering standard deviation (+/-3)
@@ -128,7 +142,7 @@ class OpenWeather:
         elif currentClouds > 100:
             currentClouds = 100
         return currentClouds
-        
+
     # Get temperature
     def getTemperature(self):
         data = self.__getData()
@@ -141,7 +155,7 @@ class OpenWeather:
             data = self.__getData()
             currentWindSpeed = float(data["current"]["wind_speed"])
             windSpeed = self.__manageChange(currentWindSpeed, self.windSpeed)
-            windSpeed = self.__randomize(windSpeed, (self.getWindGust()-windSpeed)/4)
+            windSpeed = self.__randomize(windSpeed, (self.getWindGust()-windSpeed)/3)
             if windSpeed < 0: # Standard deviation!
                 windSpeed = 0
             return windSpeed
@@ -169,13 +183,13 @@ class OpenWeather:
     def getHumidity(self):
         data = self.__getData()
         currentHumidity = float(data["current"]["humidity"])
-        return int(self.__manageChange(currentHumidity, self.humidity))
+        return self.__manageChange(currentHumidity, self.humidity)
     
     # Get airpressure
     def getAirpressure(self):
         data = self.__getData()
         currentPressure = float(data["current"]["pressure"])
-        return int(self.__manageChange(currentPressure, self.airpressure))
+        return self.__manageChange(currentPressure, self.airpressure)
     
     # Get rain
     def getRain(self):
@@ -184,7 +198,7 @@ class OpenWeather:
             currentRain = float(data["current"]["rain"]["1h"])
         except Exception: #No rain
             return float(0)
-        return int(self.__manageChange(currentRain, self.rain))
+        return self.__manageChange(currentRain, self.rain)
 
     # Get snow
     def getSnow(self):
@@ -193,7 +207,7 @@ class OpenWeather:
             currentSnow = float(data["current"]["snow"]["1h"])
         except Exception: #No snow
             return float(0)
-        return int(self.__manageChange(currentSnow, self.snow))
+        return self.__manageChange(currentSnow, self.snow)
 
     # Get dew point
     def getDewPoint(self):
@@ -215,7 +229,7 @@ class OpenWeather:
   
 # <<<<-------------- OPENWEATHER PART -----------------
 
-# # -------------- SOLAR PART ----------------->>>>
+# -------------- SOLAR PART ----------------->>>>
 
 # Declination assuming a perfect circle of earth around the sun (360/365 fixes the position on that orbit)
 def declination(dayOfYear):
@@ -280,11 +294,10 @@ def insolationAddWeather(insolation, weather):
 class SolarSim:
 
     # object constructor
-    def __init__(self, deviceName, certFilename, pemCertFilePath, url, port, ack, measure, solarTemplate, weatherTemplate, lat, lon, weather):
+    def __init__(self, deviceName, certFilename, pemCertFilePath, url, port, ack, measure, solarTemplate, lat, lon, weather):
         super().__init__()
         # Mqtt init
         self.msgTemplate = solarTemplate
-        self.weatherTemplate = weatherTemplate
         self.mqtt = MqttClient(deviceName, certFilename, pemCertFilePath, url, port, ack, measure)
         self.mqtt.connect()
         # Solar init
@@ -304,19 +317,16 @@ class SolarSim:
         # 2. Solar Insolation under current, local cloudiness conditions
         insolationWithWeather = insolationAddWeather(insolation, self.weather)
 
-
         # FINALLY - Submit data to SAP IoT Platform
         self.mqtt.sendMessage(fstr(self.msgTemplate, insolation, insolationWithWeather))
-        self.mqtt.sendMessage(fstr(self.weatherTemplate, self.weather.getWindSpeed(), self.weather.getWindGust(), self.weather.getWindDirection(), self.weather.getHumidity(), \
-                                   self.weather.getAirpressure(), self.weather.getRain(), self.weather.getSnow(), self.weather.getDewPoint(), self.weather.getUVIndex(), \
-                                   self.weather.getTemperature()))
 
     # End the simulation
     def endSimulation(self):
         self.mqtt.stop()
 
-# <<<<-------------- SOLAR PART -----------------
+# <<<<-------------- SOLAR PART ----------------
 
+# -------------- WIND PART ----------------->>>>
 # Class definition
 class WindSim:
 
@@ -339,6 +349,31 @@ class WindSim:
     # End the simulation
     def endSimulation(self):
         self.mqtt.stop()
+# <<<<-------------- SOLAR PART ----------------
+
+# -------------- WEATHER PART ---------------->>>>
+class Weather:
+    # object constructor
+    def __init__(self, deviceName, certFilename, pemCertFilePath, url, port, ack, measure, weatherTemplate, weather):
+        super().__init__()
+        # Mqtt init
+        self.msgTemplate = weatherTemplate
+        self.mqtt = MqttClient(deviceName, certFilename, pemCertFilePath, url, port, ack, measure)
+        self.mqtt.connect()
+        # Weather init
+        self.weather = weather # Handle to weather object
+
+    # Main method to simulate the solar farm
+    def simulate(self):
+        # Submit weather data to SAP IoT Platform
+        self.mqtt.sendMessage(fstr(self.msgTemplate, self.weather.getWindSpeed(), self.weather.getWindGust(), self.weather.getWindDirection(), self.weather.getHumidity(), \
+                                   self.weather.getAirpressure(), self.weather.getRain(), self.weather.getSnow(), self.weather.getDewPoint(), self.weather.getUVIndex(), \
+                                   self.weather.getTemperature()))
+
+    # End the simulation
+    def endSimulation(self):
+        self.mqtt.stop()
+# <<<<-------------- WEATHER PART ----------------
 
 # -------------- MQTT PART ----------------->>>>
 class MqttClient:
@@ -428,6 +463,7 @@ def main():
     measuresTopicLevel = config.get("topics","measuresTopicLevel")
     solarDevName = config.get("devices","solarDevName")
     windDevName = config.get("devices","windDevName")
+    weatherDevName = config.get("devices","weatherDevName")
     solarTemplate = config.get("messages","solarTemplate")
     windTemplate = config.get("messages","windTemplate")
     weatherTemplate = config.get("messages","weatherTemplate")
@@ -451,17 +487,28 @@ def main():
     # Instantiate openWeather
     weather = OpenWeather(relOpenWeatherUrl, apiKey, locLat, locLon, weatherTimeout, unitSystem, language, excludeInfo, smoothChange)
 
+    # Instantiate weather station (just sends the data provided by openWeather)
+    weatherStation = Weather(weatherDevName, weatherDevName+'.pem', pemCertFilePath, mqttServerUrl,  mqttServerPort, ackTopicLevel, \
+                             measuresTopicLevel, weatherTemplate, weather)
+
     # Instantiate solar farm device
-    solar = SolarSim(solarDevName, solarDevName+'.pem', pemCertFilePath, mqttServerUrl, mqttServerPort, ackTopicLevel, measuresTopicLevel, \
-                     solarTemplate, weatherTemplate, locLat, locLon, weather)
+    solar = SolarSim(solarDevName, weatherDevName+'.pem', pemCertFilePath, mqttServerUrl, mqttServerPort, ackTopicLevel, measuresTopicLevel, \
+                     solarTemplate, locLat, locLon, weather)
 
     # Instantiate wind farm device
     #wind = WindSim(windDevName, windDevName+'.pem', pemCertFilePath, mqttServerUrl, mqttServerPort, ackTopicLevel, measuresTopicLevel, windTemplate, locLat, locLon, weather)
     
     # Start sending data to cloud
     while loopCondition:
-        solar.simulate() #Do one round of simulation incl. MQTT transmission
+        nextRun() # Increase run number
+        print(">>>>>>>>>>>>> Starting simulation run #" + str(getRun()) + " >>>>>>>>>>>>>")
+
+        #Do one round of simulation incl. MQTT transmission
+        solar.simulate() 
+        weatherStation.simulate() 
         #wind.simulate() #TODO
+
+        print("<<<<<<<<<<<<< Ended simulation run #" + str(getRun()) + " <<<<<<<<<<<<<")
         time.sleep(pauseTime)
         if runTime > 0:
             now = datetime.now()
@@ -470,6 +517,7 @@ def main():
                 loopCondition = False
 
     time.sleep(2) # wait until we have all feedback messages from the server
+    weatherStation.endSimulation()
     solar.endSimulation()
     #wind.endSimulation() # TODO
     print("Shut down all clients. Entering endless loop. Restart pod if needed.")
